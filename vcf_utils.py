@@ -5,22 +5,33 @@ import re
 import sys 
 import gzip 
 import bz2
+from collections import defaultdict
 
 def return_file_handle(fname):
-    """
-    function open the file and returns the handler 
-    """
-    try:
-        if os.path.splitext(fname)[1] == ".gz":
-            FH = gzip.open(fname, 'rb')
-        elif os.path.splitext(fname)[1] == ".bz2":
-            FH = bz2.BZ2File(fname, 'rb')
-        else:
-            FH = open(fname, 'rU')
-    except Exception as error:
-        sys.exit(error)
-    return FH
+	"""
+	Function open the file and returns the handler 
+	"""
+	try:
+		if os.path.splitext(fname)[1] == ".gz":
+			FH = gzip.open(fname, 'rb')
+		elif os.path.splitext(fname)[1] == ".bz2":
+			FH = bz2.BZ2File(fname, 'rb')
+		else:
+			FH = open(fname, 'rU')
+	except Exception as error:
+		sys.exit(error)
+	return FH
 
+def tab_delimit_vcf(fin):
+	for line in fin :
+		line = line.strip().split('\t')
+        	if re.search(r'^(\d+|X|Y)|^chr(\d+|X|Y)', line[0]):
+			data = line
+		elif line[0] == '#CHROM':
+			header = line
+		elif line[0].startswith('##'):
+			meta = line
+			 
 
 def VCFtoBED():
 	"""
@@ -31,7 +42,8 @@ def VCFtoBED():
 	except:
 		print __doc__
 		sys.exit(-1)
-	fin = return_file_handle(vcffile)
+	fin = return_file_handle(vciffile)
+	
 	for line in fin:
 		line = line.strip().split('\t')
 		if re.search(r'^(\d+|X|Y)|^chr(\d+|X|Y)', line[0]):
@@ -643,7 +655,6 @@ def CallRateFilter():
 				print '\t'.join(line)
 	fin.close()
 
-'''
 def CenterSpecific_ACANAF():
 	"""
 	This script would take AC, AN, AF fields from INFO column and adds center sepcific AC,AN, AF fields while 
@@ -824,14 +835,13 @@ def Filter_ChrPos_FromVCF(vcffile, PosvcfFile):
 
 
 
-
-def GQ_Genotype_filter:
-	"""
+"""
+def GQ_Genotype_filter():
 	Purpose :   Checks whether the GQ in FORMAT field is lees than the specified GQ_value by the user. IF yes, replaces the Genotype column with './.' for samples            less than the specified GQ
             Very Important to recalculate AC, AN and AF in INFO field after running this script
 	Usage   :   python /CommonDATA/Python_Scripts/GQ_Genotype_filter.py  In.vcf  GQ_value  >Out.vcf 
 	Example :   python /CommonDATA/Python_Scripts/GQ_Genotype_filter.py  QUAL_recalibrated_snpEff.vcf  10  > GQ_filtered.vcf
-	"""
+
 	try:
 		inVCF = sys.argv[1]
 		GQ_value = sys.argv[2]
@@ -877,36 +887,34 @@ def GQ_Genotype_filter:
 			if 'GQ' not in formatname_list:
 				print "\n", 'GQ not present in FORMAT field', "\n"
 				sys.exit(-1)
-		else:
-			line = line.split('\t')
-			sample_names = line[9:]
-			print '\t'.join(line)
-		else:
-			line = line.split('\t')
-			print '\t'.join(line)
+			else:
+				line = line.split('\t')
+				sample_names = line[9:]
+				print '\t'.join(line)
+			else:
+				line = line.split('\t')
+				print '\t'.join(line)
 	fin.close()
 """
-Common utility function class 
-"""
-
-import os 
-import re
-import sys 
-import gzip 
-import bz2
-
-def return_file_handle(fname):
-    """
-    function open the file and returns the handler 
-    """
-    try:
-        if os.path.splitext(fname)[1] == ".gz":
-            FH = gzip.open(fname, 'rb')
-        elif os.path.splitext(fname)[1] == ".bz2":
-            FH = bz2.BZ2File(fname, 'rb')
-        else:
-            FH = open(fname, 'rU')
-    except Exception as error:
-        sys.exit(error)
-    return FH
-
+def autosomal_dominance(pedfile, vcf):
+	"""
+	Date	:	07/11/2014
+	Function :	autosomal_domimance
+	Purpose	:	Given a VCF and PED file, gives the autosomal dominant alles in each family and also the autosomal dominant alleles per gene
+	"""
+	try:
+		peffile = sys.argv[1]
+		inVCF = sys.argv[2]	
+	except:
+		print __doc__
+		sys.exit(-1)
+	ped_info = defaultdict(list)
+	affected_status = {}
+	fped = return_file_handle(pedfile)
+	for ped in fped:
+		ped = ped.strip().split('\t')
+		ped_info[':'.join(ped[0:2])] = ped[2:]
+		#affected_status[] = ped[5]
+	for sam in ped_info.items():
+		if sam[1][3] == '2' :
+			print sam[0].split(':')[1]
