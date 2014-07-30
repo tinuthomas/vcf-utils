@@ -663,11 +663,9 @@ def CenterSpecific_ACANAF():
 	
 	Usage 	: python CenterSpecific_ACANAF.py VCF CenterName >Output.vcf
 	example : python CenterSpecific_ACANAF.py  MAYO_SimplexoSubset_GGA_VA_gatk2.6.4_Part2_07152013.vcf.gz Mayo >Out.vcf
-	"""
 
 
 
-	"""
 	This script would take AC, AN, AF fields from INFO column and adds center sepcific AC,AN, AF fields while 
 	keeping original AC,AF, AN text intact
 	
@@ -835,13 +833,13 @@ def Filter_ChrPos_FromVCF(vcffile, PosvcfFile):
 
 
 
-"""
 def GQ_Genotype_filter():
+	"""
 	Purpose :   Checks whether the GQ in FORMAT field is lees than the specified GQ_value by the user. IF yes, replaces the Genotype column with './.' for samples            less than the specified GQ
             Very Important to recalculate AC, AN and AF in INFO field after running this script
 	Usage   :   python /CommonDATA/Python_Scripts/GQ_Genotype_filter.py  In.vcf  GQ_value  >Out.vcf 
 	Example :   python /CommonDATA/Python_Scripts/GQ_Genotype_filter.py  QUAL_recalibrated_snpEff.vcf  10  > GQ_filtered.vcf
-
+	"""
 	try:
 		inVCF = sys.argv[1]
 		GQ_value = sys.argv[2]
@@ -872,6 +870,7 @@ def GQ_Genotype_filter():
 				#print "\n",'GQ not found in FORMAT field of the variant ',line[0:2],"\n"
 					print '\t'.join(line)
 					#sys.exit(-1)
+		"""
 		else:
 			ln = len(sample_names)
 			for i in range(0, ln):
@@ -894,27 +893,70 @@ def GQ_Genotype_filter():
 			else:
 				line = line.split('\t')
 				print '\t'.join(line)
+		"""
 	fin.close()
-"""
+
 def autosomal_dominance(pedfile, vcf):
 	"""
 	Date	:	07/11/2014
 	Function :	autosomal_domimance
 	Purpose	:	Given a VCF and PED file, gives the autosomal dominant alles in each family and also the autosomal dominant alleles per gene
-	"""
+	"""	
 	try:
-		peffile = sys.argv[1]
-		inVCF = sys.argv[2]	
+		pedfile = sys.argv[1]
+		inVCF = sys.argv[2]
+		familyID = sys.argv[3]	
 	except:
 		print __doc__
 		sys.exit(-1)
 	ped_info = defaultdict(list)
 	affected_status = {}
+	affected_count = {}
+	family = {}
+	sample_ct = {}
+	samples = defaultdict(list)
+	affected_samples = []
 	fped = return_file_handle(pedfile)
 	for ped in fped:
-		ped = ped.strip().split('\t')
-		ped_info[':'.join(ped[0:2])] = ped[2:]
-		#affected_status[] = ped[5]
+		if not ped.startswith('#'):
+			ped = ped.strip().split('\t')
+			ped_info[':'.join(ped[0:2])] = ped[2:]
+			family[ped[1]] = ped[0]
+			samples[ped[0]].append(ped[1])
+			if ped[0] not in sample_ct :
+				sample_ct[ped[0]] = 1
+			else:
+				sample_ct[ped[0]] = sample_ct[ped[0]] + 1
+			if ped[0] not in affected_count and ped[5] == '2':	#Storing affected sample information
+				affected_samples.append(ped[1])
+				affected_count[ped[0]] = 1
+			elif ped[0] in affected_count and ped[5] == '2':
+				affected_samples.append(ped[1])
+				affected_count[ped[0]] += 1
+		#affected_status[] = ped[5]i
+	print 'family',family
+	print 'samples', samples
+	print 'ped_info', ped_info
+	print 'affected samples', affected_samples
+	print 'affected_count', affected_count
 	for sam in ped_info.items():
 		if sam[1][3] == '2' :
 			print sam[0].split(':')[1]
+	sample_pos = {}
+	fvcf = return_file_handle(inVCF)
+	for line in fvcf:
+		line = line.strip().split('\t')
+		if re.search(r'^#CHROM',line[0]):
+			for k,x in enumerate(line[9:]):
+				sample_pos[x] = k
+			samples = line[9:]	
+		elif re.search(r'^chr(\d+|X|Y)|^(\d+|X|Y)',line[0]):
+			sam_ct = 0
+			for gt_pos, gt in enumerate(line[9:]):
+				if  samples[gt_pos] in affected_samples and family[samples[gt_pos]] == familyID and gt.split(':')[0] == '0/1':
+					sam_ct += 1
+					print sam_ct, affected_count
+			if sam_ct == affected_count[familyID] :
+				print line
+				sys.exit(-1)
+	fvcf.close()
