@@ -901,21 +901,30 @@ def autosomal_dominance(pedfile, vcf):
 	Date	:	07/11/2014
 	Function :	autosomal_domimance
 	Purpose	:	Given a VCF and PED file, gives the autosomal dominant alles in each family and also the autosomal dominant alleles per gene
+	Usage	:	python scriptname.py PEDfile Input.vcf FamilyID 'Genotype to be considered for unknown affected status samples'
 	"""	
 	try:
 		pedfile = sys.argv[1]
 		inVCF = sys.argv[2]
 		familyID = sys.argv[3]	
+		unknown_geno = sys.argv[4]
 	except:
-		print __doc__
+		print autosomal_dominance.__doc__
 		sys.exit(-1)
+
 	ped_info = defaultdict(list)
 	affected_status = {}
 	affected_count = {}
+	unaffected_status = {}
+	unaffected_count = {}
+	unknown_status = {}
+	unknown_count = {}
 	family = {}
 	sample_ct = {}
 	samples = defaultdict(list)
 	affected_samples = []
+	unaffected_samples = []
+	unknown_samples = []
 	fped = return_file_handle(pedfile)
 	for ped in fped:
 		if not ped.startswith('#'):
@@ -933,12 +942,26 @@ def autosomal_dominance(pedfile, vcf):
 			elif ped[0] in affected_count and ped[5] == '2':
 				affected_samples.append(ped[1])
 				affected_count[ped[0]] += 1
+			if ped[0] not in unaffected_count and ped[5] == '1':
+				unaffected_samples.append(ped[1])
+				unaffected_count[ped[0]] = 1
+			elif ped[0] in unaffected_count and ped[5] == '1':
+				unaffected_samples.append(ped[1])
+				unaffected_count[ped[0]] += 1
+			if ped[0] not in unknown_count and ped[5] == '0':
+				unknown_samples.append(ped[1])
+				unknown_count[ped[0]] = 1
+			elif ped[0] in unknown_count and ped[5] == '0':
+				unknown_samples.append(ped[1])
+				unknown_count[ped[0]] += 1
+
 		#affected_status[] = ped[5]i
-	print 'family',family
-	print 'samples', samples
-	print 'ped_info', ped_info
-	print 'affected samples', affected_samples
-	print 'affected_count', affected_count
+	#print 'family',family
+	#print 'samples', samples
+	#print 'ped_info', ped_info
+	#print 'affected samples', affected_samples
+	#print 'affected_count', affected_count
+	#print 'unaffected_count', unaffected_count
 	for sam in ped_info.items():
 		if sam[1][3] == '2' :
 			print sam[0].split(':')[1]
@@ -950,13 +973,18 @@ def autosomal_dominance(pedfile, vcf):
 			for k,x in enumerate(line[9:]):
 				sample_pos[x] = k
 			samples = line[9:]	
+			print '\t'.join(line)
 		elif re.search(r'^chr(\d+|X|Y)|^(\d+|X|Y)',line[0]):
-			sam_ct = 0
+			sam_affect_ct = sam_unaffect_ct = sam_unknown_ct = 0
 			for gt_pos, gt in enumerate(line[9:]):
 				if  samples[gt_pos] in affected_samples and family[samples[gt_pos]] == familyID and gt.split(':')[0] == '0/1':
-					sam_ct += 1
-					print sam_ct, affected_count
-			if sam_ct == affected_count[familyID] :
-				print line
-				sys.exit(-1)
+					sam_affect_ct += 1
+				elif samples[gt_pos] in unaffected_samples and family[samples[gt_pos]] == familyID and gt.split(':')[0] == '0/0':
+					sam_unaffect_ct += 1
+				elif samples[gt_pos] in unknown_samples and family[samples[gt_pos]] == familyID and gt.split(':')[0] == unknown_geno:
+					sam_unknown_ct += 1
+			if sam_affect_ct == affected_count[familyID] and sam_unaffect_ct == unaffected_count[familyID] and sam_unknown_ct == unknown_count[familyID]:
+				print '\t'.join(line)
+		else:
+			print '\t'.join(line)
 	fvcf.close()
